@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import zipfile
 from pathlib import Path
+import re
 
 # Necessary for creating our images.
 from skimage.draw import line_aa

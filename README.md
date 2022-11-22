@@ -50,6 +50,8 @@ This repo contains modules and scripts for development of a deep learning event 
 
 * Building out the repo. Then going to add everything in so it's easy to use and the ipynb is only a handful of cells long. 
 
+* Getting somewhere but the imports aren't working. Get it working then clean up everything from the bottom.
+
 --------------------------------------------------------------------------------
 ### TODOS: 
 
