@@ -141,7 +141,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
         imgs = []
         for file in files:
 
-            img = self.spec_to_numpy(file, freq_bins=self.freq_bins)
+            img = self.spec_to_numpy(file)
             img = torch.from_numpy(img).unsqueeze(0)
             img = img.permute(0, 2, 1)
             imgs.append(img)
