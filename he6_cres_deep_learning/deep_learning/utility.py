@@ -139,3 +139,72 @@ def load_spec_dir(dir_path, freq_bins = 4096):
 
     return imgs
 
+def labels_to_masks(labels):
+    """Converts  a batch of segmentation labels into binary masks. Used 
+    with UNET or in other image segmentation tasks. This function works 
+    for both batches of labels or single (2d) image labels. The Args and 
+    return descriptions assume a full batch is input. 
+
+    Args:
+        labels (torch.int64[batch_size, H, W]): A batch of segmentation
+            labels. Each pixel is assigned a class (an integer value).
+
+    Returns:
+    binary_masks (torch.bool[batch_size, num_obj_ids, H, W]): A batch of 
+        corresponding binary masks. Layer i (of dim = 1) corresponds to 
+        a binary mask for class i. The total number of binary masks will 
+        be the number of unique object ids (num_obj_ids).
+    """
+
+    ids = labels.unique()
+    # The below ensures each mask is associated with a given class even if not all 
+    # classes are present in the given label. 
+    class_ids = torch.arange(start=ids.min(), end = ids.max()+1)
+
+    if labels.dim() == 2:
+        masks = labels == class_ids[:, None, None]
+
+    if labels.dim() == 3:
+        masks = (labels == class_ids[:, None, None, None]).permute(1, 0, 2, 3)
+
+    return masks
+
+
+def display_masks_unet(imgs, masks, class_map, alpha=0.4):
+    """Takes a batch of images and a batch of masks of the same length and
+    overlays the images with the masks using the "target_color" specified
+    in the class_map.
+
+    Args:
+        imgs (List[torch.ByteTensor[batch_size, 3, H, W]]): a batch of
+            images of shape (batch_size, 3, H, W).
+        masks (torch.bool[batch_size, num_masks, H, W]]): a batch of
+            corresponding boolean masks.
+        class_map (Dict[Dict]): the class map must contain keys that
+            correspond to the labels provided. Inner Dict must contain
+            key "target_color". class 0 is reserved for background.
+            A valid example ("name" not necessary):
+            class_map={
+            0: {"name": "background","target_color": (255, 255, 255),},
+            1: {"name": "rectangle", "target_color": (255, 0, 0)},
+            2: {"name": "line", "target_color": (0, 255, 0)},
+            3: {"name": "donut", "target_color": (0, 0, 255)}}.
+        alpha (float): transparnecy of masks. In range (0-1).
+
+    Returns:
+        result_imgs (List[torch.ByteTensor[3, H, W]]]): list of images
+            with overlaid segmentation masks.
+    """
+    num_imgs = len(imgs)
+
+    result_imgs = [
+        draw_segmentation_masks(
+            imgs[i],
+            masks[i],
+            alpha=alpha,
+            colors=[class_map[j]["target_color"] for j in list(class_map.keys())],
+        )
+        for i in range(num_imgs)
+    ]
+
+    return result_imgs
