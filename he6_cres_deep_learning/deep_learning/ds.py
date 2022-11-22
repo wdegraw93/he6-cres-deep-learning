@@ -33,7 +33,7 @@ from skimage.draw import line_aa
 class CRES_Dataset(torch.utils.data.Dataset):
     """DOCUMENT."""
 
-    def __init__(self, root_dir, freq_bins=4096, max_pool=3, transform=None):
+    def __init__(self, root_dir, freq_bins=4096, max_pool=3, file_max = 10, transform=None):
         """
         Args:
             root_dir (string): Directory with all the spec files and targets.
@@ -44,6 +44,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
         self.root_dir = root_dir
         self.freq_bins = freq_bins
         self.max_pool = max_pool
+        self.file_max = file_max
         self.transform = transform
 
         self.imgs, self.targets = self.collect_imgs_and_targets()
@@ -139,7 +140,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
             raise UserWarning("No files found at the input path.")
 
         imgs = []
-        for file in files:
+        for file in files[:self.file_max]:
 
             img = self.spec_to_numpy(file)
             img = torch.from_numpy(img).unsqueeze(0)
@@ -210,6 +211,7 @@ class CRES_DM(pl.LightningDataModule):
         root_dir,
         freq_bins=4096,
         max_pool=8,
+        file_max = 10,
         transform=None,
         train_val_test_splits=(0.6, 0.3, 0.1),
         batch_size=1,
@@ -232,6 +234,7 @@ class CRES_DM(pl.LightningDataModule):
         self.root_dir = root_dir
         self.freq_bins = freq_bins
         self.max_pool = max_pool
+        self.file_max = file_max
         self.transform = transform
         self.class_map = class_map
 
@@ -248,6 +251,7 @@ class CRES_DM(pl.LightningDataModule):
             self.root_dir,
             freq_bins=self.freq_bins,
             max_pool=self.max_pool,
+            file_max = self.file_max,
             transform=self.transform,
         )
 
