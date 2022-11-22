@@ -37,13 +37,18 @@ This repo contains modules and scripts for development of a deep learning event 
 		* Start by copying both the `config` and `gain_noise` directories in `he6-cres-deep-learning` into a directory suitable for writing training data to disk (ideally a harddrive with lots of space). 
 		* Then run the following (will need to change paths): 
 			* `cd he6-cres-spec-sims`
-			* `python3 ./build_snr_oscillation_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 10 -seed 34234 -sanity_check True`
+			* `python3 ./build_snr_oscillation_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 4 -len .035 -seed 344 -sanity_check True
+`
 			* Omit the sanity_check flag to no longer make plots to verify things are working. 
 	* Here we've built a simple set of spec files with corresponding labels. 
 
 * **Step 3**: 
-	* `python3 ./build_sideband_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 2 -seed 34234 -sanity_check True`
+	* `python3 ./build_sideband_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 2 -len .035 -seed 34234 -sanity_check True`
 
+--------------------------------------------------------------------------------
+### Deep Learning: 
+
+* Building out the repo. Then going to add everything in so it's easy to use and the ipynb is only a handful of cells long. 
 
 --------------------------------------------------------------------------------
 ### TODOS: 

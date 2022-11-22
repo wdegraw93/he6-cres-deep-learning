@@ -22,7 +22,6 @@ from typing import List, Union
 import gc
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2
 import zipfile
 from pathlib import Path
 

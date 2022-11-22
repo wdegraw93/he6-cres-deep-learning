@@ -17,12 +17,11 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 import torchmetrics
 
-# Standard imports. 
+# Standard imports.
 from typing import List, Union
 import gc
 import matplotlib.pyplot as plt
-import numpy as np 
-import cv2
+import numpy as np
 import zipfile
 from pathlib import Path
 
@@ -54,16 +53,17 @@ def show(imgs, figsize=(10.0, 10.0)):
     for i, img in enumerate(imgs):
         img = img.detach()
         img = TF.to_pil_image(img)
-        #TODO: Do I want the cmap to be gray?? May be making the labels weird colors.
-        axs[0, i].imshow(np.asarray(img),origin='lower', aspect='auto', cmap = 'gray')
+        # TODO: Do I want the cmap to be gray?? May be making the labels weird colors.
+        axs[0, i].imshow(np.asarray(img), origin="lower", aspect="auto", cmap="gray")
         axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
     plt.show()
 
     return None
 
 
-
-def spec_to_numpy(spec_path, freq_bins = 4096, slices=-1, packets_per_slice=1, start_packet=None):
+def spec_to_numpy(
+    spec_path, freq_bins=4096, slices=-1, packets_per_slice=1, start_packet=None
+):
     """
     TODO: Document.
     Making this just work for one packet per spectrum because that works for simulation in Katydid.
@@ -94,7 +94,8 @@ def spec_to_numpy(spec_path, freq_bins = 4096, slices=-1, packets_per_slice=1, s
 
     return spec_array
 
-def load_spec_dir(dir_path, freq_bins = 4096):
+
+def load_spec_dir(dir_path, freq_bins=4096):
     """
     Loads all of the images in a directory into torch images.
 
@@ -116,14 +117,17 @@ def load_spec_dir(dir_path, freq_bins = 4096):
     files = [str(x) for x in files]
 
     # Extract the file index from the file name.
-    file_idxs = [int(re.findall(r'\d+', name )[0]) for name in file_names]
+    file_idxs = [int(re.findall(r"\d+", name)[0]) for name in file_names]
 
-    # Sort the files list based on the file_idx. 
-    files =  [file for (file,file_idx) in sorted(zip(files, file_idxs), key=lambda pair: pair[1])]
+    # Sort the files list based on the file_idx.
+    files = [
+        file
+        for (file, file_idx) in sorted(zip(files, file_idxs), key=lambda pair: pair[1])
+    ]
 
     # Print statement. TODO: Delete this print statement.
-    print("\n Loading files : \n" )
-    for file in files: 
+    print("\n Loading files : \n")
+    for file in files:
         print(file)
 
     if len(files) == 0:
@@ -132,34 +136,35 @@ def load_spec_dir(dir_path, freq_bins = 4096):
     imgs = []
     for file in files:
 
-        img = spec_to_numpy(file, freq_bins = freq_bins)
+        img = spec_to_numpy(file, freq_bins=freq_bins)
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.permute(0, 2, 1)
         imgs.append(img)
 
     return imgs
 
+
 def labels_to_masks(labels):
-    """Converts  a batch of segmentation labels into binary masks. Used 
-    with UNET or in other image segmentation tasks. This function works 
-    for both batches of labels or single (2d) image labels. The Args and 
-    return descriptions assume a full batch is input. 
+    """Converts  a batch of segmentation labels into binary masks. Used
+    with UNET or in other image segmentation tasks. This function works
+    for both batches of labels or single (2d) image labels. The Args and
+    return descriptions assume a full batch is input.
 
     Args:
         labels (torch.int64[batch_size, H, W]): A batch of segmentation
             labels. Each pixel is assigned a class (an integer value).
 
     Returns:
-    binary_masks (torch.bool[batch_size, num_obj_ids, H, W]): A batch of 
-        corresponding binary masks. Layer i (of dim = 1) corresponds to 
-        a binary mask for class i. The total number of binary masks will 
+    binary_masks (torch.bool[batch_size, num_obj_ids, H, W]): A batch of
+        corresponding binary masks. Layer i (of dim = 1) corresponds to
+        a binary mask for class i. The total number of binary masks will
         be the number of unique object ids (num_obj_ids).
     """
 
     ids = labels.unique()
-    # The below ensures each mask is associated with a given class even if not all 
-    # classes are present in the given label. 
-    class_ids = torch.arange(start=ids.min(), end = ids.max()+1)
+    # The below ensures each mask is associated with a given class even if not all
+    # classes are present in the given label.
+    class_ids = torch.arange(start=ids.min(), end=ids.max() + 1)
 
     if labels.dim() == 2:
         masks = labels == class_ids[:, None, None]
