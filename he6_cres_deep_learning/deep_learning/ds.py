@@ -49,7 +49,8 @@ class CRES_Dataset(torch.utils.data.Dataset):
 
         self.imgs, self.targets = self.collect_imgs_and_targets()
 
-        # self.imgs, self.targets = self.apply_max_pooling(self.imgs, self.targets)
+        # Guarentee the correct type.
+        self.imgs, self.targets = self.imgs.type(torch.ByteTensor), self.targets.long()
 
         # Targets don't need the color dimension.
         self.targets = self.targets.squeeze(1)
