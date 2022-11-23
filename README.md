@@ -7,7 +7,7 @@
 This repo contains modules and scripts for development of a deep learning event detection pipeline for the He6-CRES experiment at the University of Washington. 
 
 --------------------------------------------------------------------------------
-### Run an analysis then make interactive plots of cres track features!
+### Train a model to detect cres events.
 
 #### Look at track and event classification overlaid on top of raw data: 
 
@@ -15,8 +15,11 @@ This repo contains modules and scripts for development of a deep learning event 
 
 
 --------------------------------------------------------------------------------
-### Instructions as I build things out: 
+### Instructions for how to build a training dataset: 
 
+#### Overview: 
+
+* Below we will review how to use this package to create three different training datasets. Each dataset will consist of 30 30ms spec files along with label files. This is to illustrate that this approach could work for us. We would need much more training data to train and deploy a data-ready model. But the fact that we are seeing reasonable performance with 30 
 * **Step 0**: Building a simple example training data set.
 	* *Description of dataset:*
 		* All bands are labeled band 0. Gain is flat, noise is not flat. (IS GAIN ACTUALLY FLAT? FIX THIS) 
@@ -37,8 +40,7 @@ This repo contains modules and scripts for development of a deep learning event 
 		* Start by copying both the `config` and `gain_noise` directories in `he6-cres-deep-learning` into a directory suitable for writing training data to disk (ideally a harddrive with lots of space). 
 		* Then run the following (will need to change paths): 
 			* `cd he6-cres-spec-sims`
-			* `python3 ./build_snr_oscillation_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 4 -len .035 -seed 344 -sanity_check True
-`
+			* `python3 ./build_snr_oscillation_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 1 -n_events 4 -len .035 -seed 344 -sanity_check True`
 			* Omit the sanity_check flag to no longer make plots to verify things are working. 
 	* Here we've built a simple set of spec files with corresponding labels. 
 
@@ -51,6 +53,8 @@ This repo contains modules and scripts for development of a deep learning event 
 * Building out the repo. Then going to add everything in so it's easy to use and the ipynb is only a handful of cells long. 
 
 * Getting somewhere but the imports aren't working. Get it working then clean up everything from the bottom.
+
+* If the maxpooling was done in the loading process this would make the loading much less intense on the ram. I should make this work before pushing on. 
 
 --------------------------------------------------------------------------------
 ### TODOS: 

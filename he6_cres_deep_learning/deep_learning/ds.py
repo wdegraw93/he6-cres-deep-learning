@@ -49,7 +49,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
 
         self.imgs, self.targets = self.collect_imgs_and_targets()
 
-        self.imgs, self.targets = self.apply_max_pooling(self.imgs, self.targets)
+        # self.imgs, self.targets = self.apply_max_pooling(self.imgs, self.targets)
 
         # Targets don't need the color dimension.
         self.targets = self.targets.squeeze(1)
@@ -133,8 +133,8 @@ class CRES_Dataset(torch.utils.data.Dataset):
             )
         ]
 
-        # # Print statement. TODO: Delete this print statement.
-        # print(f"\n Loading {len(files)} files.\n" )
+        # Maxpool to use on images and labels.
+        maxpool = nn.MaxPool2d(self.max_pool, self.max_pool, return_indices=False)
 
         if len(files) == 0:
             raise UserWarning("No files found at the input path.")
@@ -145,7 +145,10 @@ class CRES_Dataset(torch.utils.data.Dataset):
             img = self.spec_to_numpy(file)
             img = torch.from_numpy(img).unsqueeze(0)
             img = img.permute(0, 2, 1)
-            imgs.append(img)
+
+            # Apply max pooling now so we never have to hold the large images.
+
+            imgs.append(maxpool(img.float()))
 
         imgs = torch.stack(imgs)
         return imgs
