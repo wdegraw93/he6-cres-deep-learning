@@ -164,7 +164,6 @@ class Config:
             raise e
 
 
-
 class DAQ:
 
     """
@@ -463,6 +462,9 @@ class DAQ:
 
         delta_f_12 = 2.4e9 / 2**13
 
+        ## TODO: OK wait, the above only makes sense if we input a 2**13 bitcode noise
+        # floor which I need to specify somewhere!
+
         noise_power_scaling = self.delta_f / delta_f_12
         requant_gain_scaling = (2**self.config.daq.requant_gain) / (2**17)
         noise_scaling = noise_power_scaling * requant_gain_scaling
@@ -613,4 +615,3 @@ class DAQ:
         print(spec_array.shape)
 
         return spec_array
-

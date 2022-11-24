@@ -87,7 +87,7 @@ def main():
 
     args = par.parse_args()
 
-    build_simple_training_ds(
+    build_varying_slope_training_ds(
         args.config_path,
         args.gain_noise_path,
         args.n_files,
@@ -100,7 +100,7 @@ def main():
     return None
 
 
-def build_simple_training_ds(
+def build_varying_slope_training_ds(
     config_path,
     gain_noise_path,
     n_files,
@@ -110,31 +110,31 @@ def build_simple_training_ds(
     sanity_check,
 ):
 
-    print(f"\n\n\n Building simple dataset.\n\n\n")
+    print(f"\n\n\nBuilding varying_slope dataset.\n\n\n")
 
     # ---- Copy and rename base config ----
-    name = "simple_ds"
+    name = "varying_slope_ds"
     config_path = Path(config_path)
-    config_path_simple = config_path.with_name(name + config_path.suffix)
-    shutil.copyfile(str(config_path), str(config_path_simple))
+    config_path_varying_slope = config_path.with_name(name + config_path.suffix)
+    shutil.copyfile(str(config_path), str(config_path_varying_slope))
 
     # ---- Copy then alter base noise_gain file to make it simpler. ----
 
     # Step 0: make a copy of the gain noise file.
     gain_noise_path = Path(gain_noise_path)
-    gain_noise_path_simple = gain_noise_path.with_name(
+    gain_noise_path_varying_slope = gain_noise_path.with_name(
         gain_noise_path.stem + f"_{name}" + gain_noise_path.suffix
     )
-    shutil.copyfile(str(gain_noise_path), str(gain_noise_path_simple))
+    shutil.copyfile(str(gain_noise_path), str(gain_noise_path_varying_slope))
 
     # Step 1: alter the gain_noise file.
-    congifure_gain_noise_csv_simple(gain_noise_path_simple)
+    congifure_gain_noise_csv(gain_noise_path_varying_slope)
 
     # ---- Build spec files ----
-    config = Config(config_path_simple)
+    config = Config(config_path_varying_slope)
 
     # Change default settings of config to match input args.
-    config.daq.gain_noise_csv_path = gain_noise_path_simple
+    config.daq.gain_noise_csv_path = gain_noise_path_varying_slope
     config.daq.random_seed = random_seed
     config.daq.spec_length = spec_length
 
@@ -143,30 +143,32 @@ def build_simple_training_ds(
     freq_bw = config.daq.freq_bw
 
     # Build the track set to be simulated.
-    tracks = build_simple_track_set(
-        n_files, n_events_per_file, spec_length, freq_bw, random_seed
-    )
+    tracks = build_varying_slope_track_set(n_files, n_events_per_file, spec_length, freq_bw)
 
     # Build the simulated spec files.
     daq = DAQ(config)
     daq.run(tracks)
 
+    print(f"sc: {sanity_check}")
     if sanity_check:
-        # ---- Visuzlize first spec file ----
-        file_in_acq = 0
-        spec_path = daq.spec_file_paths[file_in_acq]
-        spec_array = daq.spec_to_array(spec_path, slices=-1)
-        plot_sparse_spec(spec_array, spec_length, freq_bw)
-        plot_tracks(tracks, file_in_acq, freq_bw)
-        plot_noise_gain(config.daq.gain_noise_csv_path)
 
-    print(f"\n\n\n Done building simple dataset.")
+        # ---- Visuzlize first spec file ----
+        for file_in_acq in range(n_files): 
+
+            spec_path = daq.spec_file_paths[file_in_acq]
+            spec_array = daq.spec_to_array(spec_path, slices=-1)
+            plot_sparse_spec(spec_array, spec_length, freq_bw)
+            # plot_tracks(tracks, file_in_acq, freq_bw)
+            # plot_noise_gain(config.daq.gain_noise_csv_path)
+
+    print(f"\n\n\nDone building varying_slope dataset.")
 
     return None
 
 
-def build_simple_track_set(n_files, n_events_per_file, spec_length, freq_bw, seed):
+def build_varying_slope_track_set(n_files, n_events_per_file, spec_length, freq_bw):
 
+    seed = 12348
     rng = np.random.default_rng(seed)
 
     n_events = n_files * n_events_per_file
@@ -177,7 +179,9 @@ def build_simple_track_set(n_files, n_events_per_file, spec_length, freq_bw, see
     time_stop = np.array([spec_length] * n_events)
 
     freq_start = rng.uniform(low=100e6, high=freq_bw, size=n_events)
-    slope = rng.normal(loc=1e11, scale=1e10, size=n_events)
+
+    # Now make each file have the same slope but widely ranging slopes overall. 
+    slope = (file_in_acq / file_in_acq.max()) * 4e11 + 2e8
     freq_stop = freq_start + slope * (time_stop - time_start)
 
     band_power_start = rng.normal(loc=20e-15, scale=3e-15, size=n_events)
@@ -260,7 +264,7 @@ def plot_tracks(tracks, file_in_acq, freq_bw):
     return None
 
 
-def congifure_gain_noise_csv_simple(csv_path):
+def congifure_gain_noise_csv(csv_path):
     """
     Note that if you don't change the noise here you will end up with the default noise
     floor of the apparatus (I-side).

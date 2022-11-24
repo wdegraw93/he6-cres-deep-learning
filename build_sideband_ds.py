@@ -88,7 +88,7 @@ def main():
 
     args = par.parse_args()
 
-    build_snr_oscillation_training_ds(
+    build_sideband_training_ds(
         args.config_path,
         args.gain_noise_path,
         args.n_files,
@@ -101,37 +101,37 @@ def main():
     return None
 
 
-def build_snr_oscillation_training_ds(
-    config_path, gain_noise_path, n_files, n_events_per_file, spec_length random_seed, sanity_check
+def build_sideband_training_ds(
+    config_path, gain_noise_path, n_files, n_events_per_file, spec_length, random_seed, sanity_check
 ):
 
     print(f"\n\n\n Building snr oscillation dataset.\n\n\n")
 
     # ---- Copy base config ----
-    name = "snr"
+    name = "sideband_ds"
     config_path = Path(config_path)
-    config_path_snr = config_path.with_name(
-        config_path.stem + f"_{name}" + config_path.suffix
+    config_path_sideband = config_path.with_name(
+        name + config_path.suffix
     )
-    shutil.copyfile(str(config_path), str(config_path_snr))
+    shutil.copyfile(str(config_path), str(config_path_sideband))
 
     # ---- Copy then alter base noise_gain file to make it simpler. ----
 
     # Step 0: make a copy of the gain noise file.
     gain_noise_path = Path(gain_noise_path)
-    gain_noise_path_snr = gain_noise_path.with_name(
+    gain_noise_path_sideband = gain_noise_path.with_name(
         gain_noise_path.stem + f"_{name}" + gain_noise_path.suffix
     )
-    shutil.copyfile(str(gain_noise_path), str(gain_noise_path_snr))
+    shutil.copyfile(str(gain_noise_path), str(gain_noise_path_sideband))
 
     # Step 1: alter the gain_noise file.
-    congifure_gain_noise_csv_snr(gain_noise_path_snr)
+    congifure_gain_noise_csv(gain_noise_path_sideband)
 
     # ---- Build spec files ----
-    config = Config(config_path_snr)
+    config = Config(config_path_sideband)
 
     # Change default settings of config to match input args.
-    config.daq.gain_noise_csv_path = gain_noise_path_snr
+    config.daq.gain_noise_csv_path = gain_noise_path_sideband
     config.daq.spec_length = spec_length
     config.daq.random_seed = random_seed
 
@@ -149,18 +149,17 @@ def build_snr_oscillation_training_ds(
     daq = DAQ(config)
     daq.run(tracks)
 
-    # ---- Visuzlize first spec file ----
-    file_in_acq = 0
-    spec_path = daq.spec_file_paths[file_in_acq]
-    spec_array = daq.spec_to_array(spec_path, slices=-1)
-
-    print(f"sc: {sanity_check}")
     if sanity_check:
+        
+        # ---- Visuzlize first spec file ----
+        file_in_acq = 0
+        spec_path = daq.spec_file_paths[file_in_acq]
+        spec_array = daq.spec_to_array(spec_path, slices=-1)
         plot_sparse_spec(spec_array, spec_length, freq_bw)
         plot_tracks(tracks, file_in_acq, freq_bw)
         plot_noise_gain(config.daq.gain_noise_csv_path)
 
-    print(f"\n\n\n Done building simple dataset.")
+    print(f"\n\n\nDone building simple dataset.")
 
     return None
 
@@ -180,11 +179,12 @@ def build_sideband_track_set(n_files, n_events_per_file, spec_length, freq_bw, s
     slope = rng.normal(loc=1e11, scale=1e10, size=n_events)
     freq_stop = freq_start + slope * (time_stop - time_start)
 
-    band_power_start = rng.normal(loc=20e-15, scale=3e-15, size=n_events)
+    band_power_start = np.array([80e-15] * n_events)
     band_power_stop = band_power_start
     band_num = np.array([0] * n_events)
 
-    h = rng.uniform(low=0, high=1, size=n_events)
+    h = rng.uniform(low=.9, high=1.1, size=n_events)
+    print(f"h: {h}")
     axial_freq = rng.uniform(low=60e6, high=100e6, size=n_events)
 
     segments = pd.DataFrame(
@@ -205,7 +205,7 @@ def build_sideband_track_set(n_files, n_events_per_file, spec_length, freq_bw, s
     )
 
     tracks = process_segments(segments)
-    print(sideband_calc(18e9, 100e6, h=1, num_sidebands=1))
+
 
     return tracks
 
@@ -288,7 +288,6 @@ def process_segments(segments):
         sideband_amplitudes = sideband_calc(
             row.freq_start, row.axial_freq, row.h, num_sidebands=sideband_num
         )[0]
-        print(sideband_amplitudes)
 
         for i, band_num in enumerate(range(-sideband_num, sideband_num + 1)):
 
@@ -316,7 +315,7 @@ def process_segments(segments):
     return bands_df
 
 
-def congifure_gain_noise_csv_snr(csv_path):
+def congifure_gain_noise_csv(csv_path):
 
     # Sinusoidal gain:
     col = "gain"

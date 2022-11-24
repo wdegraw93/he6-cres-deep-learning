@@ -15,6 +15,10 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
+import traceback
+import pandas as pd
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
 import torchmetrics
 
 # Standard imports.
@@ -24,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import zipfile
 from pathlib import Path
+import re
 
 # Necessary for creating our images.
 from skimage.draw import line_aa
@@ -33,7 +38,9 @@ from skimage.draw import line_aa
 # from ipywidgets import interact, interact_manual
 
 
-def show(imgs, figsize=(10.0, 10.0)):
+def show(
+    imgs, figsize=(10.0, 10.0), extent=[0, 1, 0, 1], axis_labels=("xlabel", "ylabel")
+):
     """Displays a single image or list of images. Taken more or less from
     the pytorch docs:
     https://pytorch.org/vision/main/auto_examples/plot_visualization_utils.html#visualizing-a-grid-of-images
@@ -54,8 +61,12 @@ def show(imgs, figsize=(10.0, 10.0)):
         img = img.detach()
         img = TF.to_pil_image(img)
         # TODO: Do I want the cmap to be gray?? May be making the labels weird colors.
-        axs[0, i].imshow(np.asarray(img), origin="lower", aspect="auto", cmap="gray")
-        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        axs[0, i].imshow(
+            np.asarray(img), origin="lower", aspect="auto", cmap="gray", extent=extent
+        )
+        # axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    plt.xlabel(axis_labels[0])
+    plt.ylabel(axis_labels[1])
     plt.show()
 
     return None
@@ -95,9 +106,9 @@ def spec_to_numpy(
     return spec_array
 
 
-def load_spec_dir(dir_path, freq_bins=4096):
+def load_spec_dir(dir_path, freq_bins=4096, file_max=10, max_pool=1):
     """
-    Loads all of the images in a directory into torch images.
+    Loads file_max of the images in a directory into torch images.
 
     Args:
         dir_path (str): path should point to a directory that only contains
@@ -125,23 +136,28 @@ def load_spec_dir(dir_path, freq_bins=4096):
         for (file, file_idx) in sorted(zip(files, file_idxs), key=lambda pair: pair[1])
     ]
 
+    maxpool = nn.MaxPool2d(max_pool, max_pool, return_indices=False)
+
     # Print statement. TODO: Delete this print statement.
     print("\n Loading files : \n")
-    for file in files:
-        print(file)
+    # for file in files[:file_max]:
+    #     print(file)
 
     if len(files) == 0:
         raise UserWarning("No files found at the input path.")
 
     imgs = []
-    for file in files:
+    for file in files[:file_max]:
+        print(file)
 
         img = spec_to_numpy(file, freq_bins=freq_bins)
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.permute(0, 2, 1)
-        imgs.append(img)
+        if max_pool > 1:
+            img = maxpool(img.float())
+        imgs.append(img.type(torch.ByteTensor))
 
-    return imgs
+    return torch.stack(imgs)
 
 
 def labels_to_masks(labels):
@@ -213,3 +229,77 @@ def display_masks_unet(imgs, masks, class_map, alpha=0.4):
     ]
 
     return result_imgs
+
+
+# Extraction function
+def tb_to_df(path):
+    runlog_data = pd.DataFrame({"metric": [], "value": [], "step": []})
+    try:
+        event_acc = EventAccumulator(path)
+        event_acc.Reload()
+        tags = event_acc.Tags()["scalars"]
+        for tag in tags:
+            event_list = event_acc.Scalars(tag)
+            values = list(map(lambda x: x.value, event_list))
+            step = list(map(lambda x: x.step, event_list))
+            r = {"metric": [tag] * len(step), "value": values, "step": step}
+            r = pd.DataFrame(r)
+            runlog_data = pd.concat([runlog_data, r])
+    # Dirty catch of DataLossError
+    except Exception:
+        print("Event file possibly corrupt: {}".format(path))
+        traceback.print_exc()
+    return runlog_data
+
+
+def mean_snr_ds(dataset_path, file_max=5, max_pool=1):
+
+    img_dir_path = dataset_path + "/spec_files"
+    label_dir_path = dataset_path + "/label_files"
+
+    imgs = load_spec_dir(
+        img_dir_path, freq_bins=4096, file_max=file_max, max_pool=max_pool
+    )
+    labels = load_spec_dir(
+        label_dir_path, freq_bins=4096, file_max=file_max, max_pool=max_pool
+    )
+
+    return snr(imgs, labels)
+
+
+def snr(imgs, labels):
+
+    imgs = imgs.squeeze(1)
+    labels = labels.squeeze(1)
+
+    print(f"\nImg shape: {imgs.shape}")
+    condition = labels == 0
+    signal = imgs[~condition].float()
+    noise = imgs[condition].float()
+    signal_power = signal.mean()
+    noise_power = noise.mean()
+
+    signal_std = signal.std()
+    noise_std = noise.std()
+
+    print(f"\nsignal_power: {signal_power}")
+    print(f"noise_power: {noise_power}\n")
+
+    print(f"\nsignal_std: {signal_std}")
+    print(f"noise_std: {noise_std}\n")
+
+    mean_snr = signal_power / noise_power
+
+    print(f"\nmean_snr: {mean_snr}\n")
+
+    summary = np.array(
+        [
+            signal_power.numpy(),
+            noise_power.numpy(),
+            signal_std.numpy(),
+            noise_std.numpy(),
+            mean_snr.numpy(),
+        ]
+    )
+
+    return summary

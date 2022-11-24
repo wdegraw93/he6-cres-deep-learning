@@ -33,7 +33,9 @@ from skimage.draw import line_aa
 class CRES_Dataset(torch.utils.data.Dataset):
     """DOCUMENT."""
 
-    def __init__(self, root_dir, freq_bins=4096, max_pool=3, file_max = 10, transform=None):
+    def __init__(
+        self, root_dir, freq_bins=4096, max_pool=3, file_max=10, transform=None
+    ):
         """
         Args:
             root_dir (string): Directory with all the spec files and targets.
@@ -70,25 +72,6 @@ class CRES_Dataset(torch.utils.data.Dataset):
     def __len__(self):
 
         return len(self.imgs)
-
-    def apply_max_pooling(self, imgs, targets):
-
-        maxpool = nn.MaxPool2d(self.max_pool, self.max_pool, return_indices=True)
-        imgs_mp, indices = maxpool(imgs.float())
-        targets_mp, indices = maxpool(
-            targets.float()
-        )  # Not sure if to use the indices or not here...
-        # Retrieve corresponding elements from target according to indices.
-        # targets_mp = self.retrieve_elements_from_indices(targets.float(), indices)
-
-        return imgs_mp.type(torch.ByteTensor), targets_mp.long()
-
-    def retrieve_elements_from_indices(self, tensor, indices):
-        flattened_tensor = tensor.flatten(start_dim=2)
-        output = flattened_tensor.gather(
-            dim=2, index=indices.flatten(start_dim=2)
-        ).view_as(indices)
-        return output
 
     def collect_imgs_and_targets(self):
 
@@ -141,7 +124,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
             raise UserWarning("No files found at the input path.")
 
         imgs = []
-        for file in files[:self.file_max]:
+        for file in files[: self.file_max]:
 
             img = self.spec_to_numpy(file)
             img = torch.from_numpy(img).unsqueeze(0)
@@ -215,7 +198,7 @@ class CRES_DM(pl.LightningDataModule):
         root_dir,
         freq_bins=4096,
         max_pool=8,
-        file_max = 10,
+        file_max=10,
         transform=None,
         train_val_test_splits=(0.6, 0.3, 0.1),
         batch_size=1,
@@ -224,7 +207,7 @@ class CRES_DM(pl.LightningDataModule):
         class_map={
             0: {
                 "name": "background",
-                "target_color": (0, 0, 0),
+                "target_color": (255, 255, 255),
             },
             1: {"name": "band 0", "target_color": (255, 0, 0)},
             2: {"name": "band 1", "target_color": (0, 255, 0)},
@@ -255,7 +238,7 @@ class CRES_DM(pl.LightningDataModule):
             self.root_dir,
             freq_bins=self.freq_bins,
             max_pool=self.max_pool,
-            file_max = self.file_max,
+            file_max=self.file_max,
             transform=self.transform,
         )
 
@@ -287,15 +270,24 @@ class CRES_DM(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.cres_dataset, batch_size=self.batch_size, sampler=self.train_sampler
+            self.cres_dataset,
+            batch_size=self.batch_size,
+            sampler=self.train_sampler,
+            num_workers=8,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.cres_dataset, batch_size=self.batch_size, sampler=self.val_sampler
+            self.cres_dataset,
+            batch_size=self.batch_size,
+            sampler=self.val_sampler,
+            num_workers=8,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.cres_dataset, batch_size=self.batch_size, sampler=self.test_sampler
+            self.cres_dataset,
+            batch_size=self.batch_size,
+            sampler=self.test_sampler,
+            num_workers=8,
         )

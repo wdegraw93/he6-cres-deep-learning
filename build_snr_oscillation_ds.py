@@ -19,14 +19,6 @@ import shutil
 pd.set_option("display.max_rows", 500)
 pd.set_option("display.max_columns", 500)
 
-# # Path to local imports. CHANGE TO YOUR LOCAL VERSION.
-# sys.path.append("/home/drew/He6CRES/he6-cres-spec-sims/")
-
-# # Local imports.
-# import he6_cres_spec_sims.experiment as exp
-# import he6_cres_spec_sims.simulation as sim
-# import he6_cres_spec_sims.simulation_blocks as blocks
-
 from he6_cres_deep_learning.daq import DAQ, Config
 
 
@@ -112,13 +104,13 @@ def build_snr_oscillation_training_ds(
     config_path, gain_noise_path, n_files, n_events_per_file, spec_length, random_seed, sanity_check
 ):
 
-    print(f"\n\n\n Building snr oscillation dataset.\n\n\n")
+    print(f"\n\n\nBuilding snr oscillation dataset.\n\n\n")
 
     # ---- Copy base config ----
-    name = "snr"
+    name = "snr_oscillation_ds"
     config_path = Path(config_path)
     config_path_snr = config_path.with_name(
-        config_path.stem + f"_{name}" + config_path.suffix
+        name + config_path.suffix
     )
     shutil.copyfile(str(config_path), str(config_path_snr))
 
@@ -153,18 +145,16 @@ def build_snr_oscillation_training_ds(
     daq = DAQ(config)
     daq.run(tracks)
 
-    # ---- Visuzlize first spec file ----
-    file_in_acq = 0
-    spec_path = daq.spec_file_paths[file_in_acq]
-    spec_array = daq.spec_to_array(spec_path, slices=-1)
-
-    print(f"sc: {sanity_check}")
     if sanity_check:
+        # ---- Visuzlize first spec file ----
+        file_in_acq = 0
+        spec_path = daq.spec_file_paths[file_in_acq]
+        spec_array = daq.spec_to_array(spec_path, slices=-1)
         plot_sparse_spec(spec_array, spec_length, freq_bw)
         plot_tracks(tracks, file_in_acq, freq_bw)
         plot_noise_gain(config.daq.gain_noise_csv_path)
         
-    print(f"\n\n\n Done building simple dataset.")
+    print(f"\n\n\nDone building simple dataset.")
 
     return None
 

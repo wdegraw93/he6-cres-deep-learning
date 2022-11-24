@@ -232,6 +232,7 @@ class LightningImageSegmentation(pl.LightningModule):
         kernel_size=3,
         bias=False,
         weight_loss=None,
+        learning_rate = 1e-3
     ):
         super().__init__()
 
@@ -243,6 +244,7 @@ class LightningImageSegmentation(pl.LightningModule):
         self.skip_connect = skip_connect
         self.kernel_size = kernel_size
         self.bias = bias
+        self.learning_rate = learning_rate
 
         if weight_loss == None:
             self.weight_loss = torch.ones(self.num_classes)
@@ -259,11 +261,17 @@ class LightningImageSegmentation(pl.LightningModule):
         self.train_f1 = torchmetrics.F1Score(
             full_state_update="false", mdmc_average="samplewise"
         )
+        self.train_iou = torchmetrics.JaccardIndex(
+            full_state_update="false", num_classes=self.num_classes, average="macro"
+        )
         self.val_acc = torchmetrics.Accuracy(
             full_state_update="false", mdmc_average="samplewise"
         )
         self.val_f1 = torchmetrics.F1Score(
             full_state_update="false", mdmc_average="samplewise"
+        )
+        self.val_iou = torchmetrics.JaccardIndex(
+            full_state_update="false", num_classes=self.num_classes, average="macro"
         )
 
         # Loss function.
@@ -302,10 +310,12 @@ class LightningImageSegmentation(pl.LightningModule):
         # Log step metrics.
         self.train_acc(logits, labels)
         self.train_f1(logits, labels)
+        self.train_iou(logits, labels)
 
-        self.log("Loss/train_loss", loss)
-        self.log("Acc/train_acc", self.train_acc, on_step=True)
-        self.log("F1/train_f1", self.train_f1, on_step=True)
+        self.log("train/loss", loss)
+        self.log("train/acc", self.train_acc, on_step=True)
+        self.log("train/f1", self.train_f1, on_step=True)
+        self.log("train/iou", self.train_iou, on_step=True)
 
         return loss
 
@@ -321,11 +331,13 @@ class LightningImageSegmentation(pl.LightningModule):
         # log step metrics.
         self.val_acc(logits, labels)
         self.val_f1(logits, labels)
+        self.val_iou(logits, labels)
 
-        self.log("Loss/val_loss", loss)
-        self.log("Acc/val_acc", self.val_acc, on_step=True)
-        self.log("F1/val_f1", self.val_f1, on_step=True)
+        self.log("val/loss", loss)
+        self.log("val/acc", self.val_acc, on_step=True)
+        self.log("val/f1", self.val_f1, on_step=True)
+        self.log("val/iou", self.val_iou, on_step=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
