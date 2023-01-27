@@ -1,7 +1,7 @@
 # he6_cres_spec_sims example config file. 
 
 Daq:
-  spec_length: .006
+  spec_length: .035
   freq_bw: 1.2e+9
   freq_bins: 4096
   roach_avg: 2
@@ -10,6 +10,5 @@ Daq:
   rng_seed: 123456
   build_labels: True
   waveguide_side": "I"
-  gain_noise_csv_path: "/home/drew/He6CRES/he6-cres-deep-learning/gain_noise/base_gain_noise.csv"
+  gain_noise_csv_path: "/Users/winston/Documents/dsir-1031/projects/he6-cres-deep-learning/demo/gain_noise/base_gain_noise.csv"
   spec_prefix: "test"
-
