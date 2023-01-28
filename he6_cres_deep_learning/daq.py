@@ -514,7 +514,7 @@ class DAQ:
         # First make a results_dir with the same name as the config.
         config_name = self.config.config_path.stem
         parent_dir = self.config.config_path.parents[0]
-
+        print(parent_dir)
         self.results_dir = parent_dir / config_name
 
         # If results_dir doesn't exist, then create it.
