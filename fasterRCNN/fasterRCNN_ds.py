@@ -149,25 +149,17 @@ def fasterrcnn_spec(config_path,
     
     # Now that spec files are written, convert bboxes to pixel height, width
     delta_f = config.daq.freq_bw / config.daq.freq_bins #height conversion
-    slices_in_spec = int(config.daq.spec_length * delta_f / config.daq.roach_avg) #width conversion
+    slices_in_spec = config.daq.spec_length * delta_f / config.daq.roach_avg #width conversion
     
     for bbox_dict in target_dict.values():
         for bbox in bbox_dict.values():
             bbox[0] *= slices_in_spec/spec_length
-            bbox[0] = int(bbox[0])
             bbox[2] *= slices_in_spec/spec_length
-            bbox[2] = int(bbox[2])
             bbox[1] /= delta_f
-            bbox[1] = int(bbox[1])
             bbox[3] /= delta_f
-            bbox[3] = int(bbox[3])
     
     # write to disk
     labels_dir = Path(config_path).parent.joinpath(name, 'label_files')
-    if not labels_dir.is_dir():
-        labels_dir.mkdir()
-        print("created directory : ", labels_dir)
-
     write_label_files(target_dict, labels_dir, config.daq.spec_prefix)
     
     return None
@@ -227,6 +219,7 @@ def fasterrcnn_df(n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, 
             # check if event in keys for bboxes, if not then initialize list
             if event not in event_bboxes[file].keys():
                 event_bboxes[file][event] = []
+                
 #-------------------------------------------------------------------------------------------------------------------------
             # Define number of scatters per event
             # TODO: Implement a physical model for scattering
@@ -249,8 +242,11 @@ def fasterrcnn_df(n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, 
                 else:
                     stop_time = start_time+track_len
     
+#-------------------------------------------------------------------------------------------------------------------------
                 # Slope of track is assumed to be normally distributed around the mean of 2e8Hz in Kr83 events
+                # TODO: Implement empirical model for track slopes based on energy of the electron
                 slope = rng.normal(loc=slope_mean, scale=slope_std)
+#-------------------------------------------------------------------------------------------------------------------------
                 
                 # Check if track outside of bandwidth
                 if start_freq + slope*track_len > freq_bw:
@@ -286,11 +282,14 @@ def fasterrcnn_df(n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, 
                     event_bboxes[file][event].append(stop_time)
                     event_bboxes[file][event].append(stop_freq)
                 
+#-------------------------------------------------------------------------------------------------------------------------
                 # Else update start time and freq. 
                 # Frequency jump will be pulled from normal dist mean 10MHZ std 2MHz
+                # TODO: Frequency jumps will also have to be pulled from physical scattering model
                 else:
                     start_time = stop_time
                     start_freq = stop_freq + rng.normal(loc=10e6, scale=2e6)
+#-------------------------------------------------------------------------------------------------------------------------
     
 #-------------------------------------------------------------------------------------------------------------------------   
     # TODO: implement proper power information
@@ -299,28 +298,9 @@ def fasterrcnn_df(n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, 
     track_set["band_num"] = np.zeros(len(track_set["slope"]))
 #-------------------------------------------------------------------------------------------------------------------------
     
-    # convert track_set dict to DataFrame
-    track_set = pd.DataFrame(track_set)
-    
-    # If want to return a DataFrame of track-level bboxes then uncomment block below and add track_bboxes to return statement
-#     # define track bbox DataFrame
-#     track_bboxes = track_set.loc[:,("file_in_acq", "event_num")].copy()
-#     bbox_list = []
-    
-#     # define counter to keep up with total tracks for indexing
-#     tot_tracks=0
-#     for file in event_bboxes.keys():
-#         for event in event_bboxes[file].keys():
-#             n_tracks = track_set[(track_set["file_in_acq"]==file) &\
-#                                  (track_set["event_num"]==event)].shape[0]
-#             for track in range(n_tracks):
-#                 bbox_list.append(event_bboxes[file][event])
-#                 if track==n_tracks-1:
-#                     tot_tracks += n_tracks
-                    
-#     track_bboxes['bbox'] = bbox_list
-
     return track_set, event_bboxes
+
+
 
 def congifure_gain_noise_csv(csv_path):
     """
@@ -339,7 +319,9 @@ def congifure_gain_noise_csv(csv_path):
     array = np.array([1.0] * 4096)
 
     update_gain_noise_csv(csv_path, col, array)
-
+    return None
+    
+    
 def update_gain_noise_csv(csv_path, col, array):
     """
     Helper function for editing gain_noise.csv.
@@ -350,9 +332,16 @@ def update_gain_noise_csv(csv_path, col, array):
 
     return None
 
+
+
 def write_label_files(target_dict, path_to_target_dir, spec_prefix):
+    if not path_to_target_dir.is_dir():
+        path_to_target_dir.mkdir()
+        print("created directory : ", path_to_target_dir)
     with open(f'{path_to_target_dir}/{spec_prefix}_labels.json', 'w') as file:
         json.dump(target_dict, file)
-
+    return None
+        
+        
 if __name__ == "__main__":
     main()
