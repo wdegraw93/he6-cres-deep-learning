@@ -430,24 +430,27 @@ class CRES_LM(pl.LightningModule):
 
         return losses
 
+    
     def validation_step(self, val_batch, batch_idx):
 
         imgs, targets = val_batch
         preds = self.forward(imgs)
         
-        
         iou_list = torch.tensor([box_iou(target["boxes"], pred["boxes"]).diag().mean() for target, pred in zip(targets, preds)])
-        # print(iou_list)
-        self.log('IoU_bbox/val',iou_list)
 
+        self.log('IoU_bbox/val',iou_list)
+        self.log('Prediction_shape/val', float(len(preds[0]['boxes'])))
+        self.log('targets_shape/val', float(len(targets[0]['boxes'])))
         return None
 
+    
     def configure_optimizers(self): 
 
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
         return optimizer
 
+    
     def get_fasterrcnn_model(self, num_classes, pretrained):
         
         # load Faster RCNN pre-trained model
