@@ -1,0 +1,4 @@
+.ipynb_checkpoints
+.DS_Store
+fasterRCNN/config/fasterRCNN/spec_files/*
+fasterRCNN/tb_logs/
