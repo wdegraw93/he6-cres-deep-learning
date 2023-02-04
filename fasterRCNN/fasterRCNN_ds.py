@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.append(str(Path(sys.path[0]).parent))
 from he6_cres_deep_learning.daq import DAQ, Config
 
-def main():#n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, slope_mean=2e8, slope_std=1e7, seed=1234
+def main():
     # Parse command line arguments.
     par = argparse.ArgumentParser()
     arg = par.add_argument

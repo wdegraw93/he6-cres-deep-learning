@@ -4,12 +4,8 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import ipywidgets as widgets
-from ipywidgets import interact, interact_manual, fixed
-import seaborn as sns
 import sys
 import yaml
-from pathlib import Path
 import shutil
 import json
 from typing import List, Union
@@ -17,6 +13,7 @@ import gc
 import zipfile
 from pathlib import Path
 import re
+import argparse
 
 # Deep learning imports.
 import torch
@@ -25,29 +22,184 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split, TensorDataset
 
 import torchvision
-from torchvision.utils import draw_bounding_boxes, make_grid
-from torchvision.ops import masks_to_boxes, box_area
 import torchvision.transforms.functional as TF
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.ops import box_iou
+from torchvision.ops import box_iou, nms
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 import torchmetrics
-from torchmetrics.detection.mean_ap import MeanAveragePrecision, compute_area
 
-# Additional settings.
-pd.set_option("display.max_rows", 500)
-pd.set_option("display.max_columns", 500)
+def main():
+    par = argparse.ArgumentParser()
+    arg = par.add_argument
+    arg(
+        "-rd",
+        "--root_dir",
+        type=str,
+        default=sys.path[0]+'/config/fasterRCNN',
+        help="Path to the directory that contains the label_files and spec_files directories",
+    )
+    arg(
+        '-fb',
+        '--freq_bins',
+        type=int,
+        default=4096,
+        help='Number of frequency bins in spec files'
+    )
+    arg(
+        '-mp',
+        '--max_pool',
+        type=int,
+        default=16,
+        help='Max pooling factor to apply to data'   
+    )
+    arg(
+        '-f',
+        '--file_max',
+        type=int,
+        default=10,
+        help='Max number of files to pull from spec_dir'
+    )
+    arg(
+        '-t',
+        '--transform',
+        type=str,
+        default=None,
+        help='Transformation to apply to image'
+    )
+    arg(
+        '-ts',
+        '--train_val_test_splits',
+        type=tuple,
+        default=(0.6,0.3,0.1),
+        help='Fraction of data to use for train/val/test splits (tf, vf, test_f)'
+    )
+    arg(
+        '-bs',
+        '--batch_size',
+        type=int,
+        default=1,
+        help='batch size for dataloaders'
+    )
+    arg(
+        '-sd',
+        '--shuffle_dataset',
+        type=bool,
+        default=True,
+        help='Whether or not to shuffle train/val datasets during training'
+    )
+    arg(
+        '-s',
+        '--seed',
+        type=int,
+        default=42,
+        help='Random seed to use for shuffling of data'
+    )
+    arg(
+        '-nw',
+        '--num_workers',
+        type=int,
+        default=0,
+        help='Number of processors to use for loading data'
+    )
+    arg(
+        '-cm',
+        '--class_map',
+        type=dict,
+        default={
+            0: {"name": "background","target_color": (255, 255, 255),},
+            1: {"name": "event", "target_color": (255, 0, 0)}
+        },
+        help='Dict describing the class structure for the model'
+    )
+    arg(
+        '-nc',
+        '--num_classes',
+        type=int,
+        default=2,
+        help='Number of classes for the model'
+    )
+    arg(
+        '-lr',
+        '--learning_rate',
+        type=float,
+        default=1e-4,
+        help='Learning rate for Adam algorithm'
+    )
+    arg(
+        '-p',
+        '--pretrained',
+        type=bool,
+        default=True,
+        help='Option to use pretrained weights for the resnet model'
+    )
+    arg(
+        '-e',
+        '--max_epochs',
+        type=int,
+        default=5,
+        help='Epochs to use for training'
+    )
+    
+    args = par.parse_args()
 
-sys.path.append(sys.path[0]+'/..')
-from he6_cres_deep_learning.daq import DAQ, Config
-root_dir = sys.path[0]+'/config/fasterRCNN'
+    # Define training object
+    cres_dm = CRES_DM(root_dir = args.root_dir,
+                      freq_bins = args.freq_bins,
+                      max_pool = args.max_pool,
+                      file_max = args.file_max,
+                      batch_size = args.batch_size,
+                      num_workers = args.num_workers,
+                      transform = args.transform,
+                      shuffle_dataset = args.shuffle_dataset,
+                      seed = args.seed,
+                      class_map = args.class_map,
+                      train_val_test_splits = args.train_val_test_splits
+                      )
+
+    
+    # Create Instance of LightningModule
+    cres_lm = CRES_LM(num_classes = args.num_classes,
+                      lr = args.learning_rate,
+                      pretrained = args.pretrained)
+
+    # Create callback for ModelCheckpoints. 
+    checkpoint_callback = ModelCheckpoint(filename='{epoch:02d}', 
+                                          save_top_k = 15, 
+                                          monitor = "Loss/train_loss", 
+                                          every_n_epochs = 1)
+
+    # Define Logger. 
+    logger = TensorBoardLogger("tb_logs", name="cres", log_graph = False)
+
+    # Set device.
+    device = "gpu" if torch.cuda.is_available() else "cpu"
+
+    # Create an instance of a Trainer.
+    trainer = pl.Trainer(logger = logger, 
+                         callbacks = [checkpoint_callback], 
+                         accelerator = device, 
+                         max_epochs = args.max_epochs, 
+                         log_every_n_steps = 1, 
+                         check_val_every_n_epoch= 1)
+
+    # Fit. 
+    trainer.fit(cres_lm, cres_dm.train_dataloader(), cres_dm.val_dataloader())
+    
+    return None
+
+
 
 class CRES_Dataset(torch.utils.data.Dataset):
-    """DOCUMENT."""
+    """
+    Following the structure necessitated by PyTorch, defining the Dataset class for this
+    data. This involves the required __init__ and __getitem__ functions, but also
+    will be responsible for formatting the data into the torch.tensor structures required
+    for the RCNN model. 
+    """
 
     def __init__(
         self, root_dir, freq_bins=4096, max_pool=3, file_max=10, transform=None
@@ -69,7 +221,7 @@ class CRES_Dataset(torch.utils.data.Dataset):
 
         # Guarentee the correct type.
         self.imgs = self.imgs.type(torch.ByteTensor)
-
+        
         return None
 
     def __getitem__(self, idx):
@@ -91,13 +243,13 @@ class CRES_Dataset(torch.utils.data.Dataset):
         img_dir = self.root_dir + "/spec_files"
         target_dir = self.root_dir + "/label_files"
 
+#--------------------------------------------------------------------------------------------------- 
         # TODO: make it so directories get spec_prefix instead of files
         imgs, exp_name = self.load_spec_dir(img_dir)
-#---------------------------------------------------------------------------------------------------        
-        # Is this really the best way to scale the bboxes?
-        targets = self.load_target_dir(target_dir, exp_name, imgs[0][0].shape)
-        # targets = targets.long()
+#---------------------------------------------------------------------------------------------------
 
+        targets = self.load_target_dir(target_dir, exp_name)
+    
         return imgs, targets
 
     def load_spec_dir(self, dir_path):
@@ -108,13 +260,11 @@ class CRES_Dataset(torch.utils.data.Dataset):
             dir_path (str): path should point to a directory that only contains
                 .JPG images. Or any image type compatible with cv2.imread().
 
-            resize_factor (float): how to resize the image. Often one would
-                like to reduce the size of the images to be easier/faster to
-                use with our maskrcnn model.
-
         Returns:
-            imgs (List[torch.ByteTensor[3, H, W]]): list of images (each a
-                torch.ByteTensor of shape(3, H, W)).
+            imgs (List[torch.ByteTensor[1, H, W]]): list of images (each a
+                torch.ByteTensor of shape(1, H, W)). Also returns the experiment
+                name in this case, as each simulation is not yet being aggregated
+                to ensure accurate matching of file numbers/events. 
         """
         path_glob = Path(dir_path).glob("**/*")
         files = [x for x in path_glob if x.is_file()]
@@ -134,7 +284,8 @@ class CRES_Dataset(torch.utils.data.Dataset):
                 zip(files, file_idxs), key=lambda pair: pair[1]
             )
         ]
-        # Maxpool to use on images and labels.
+        
+        # Maxpool to use on images
         maxpool = nn.MaxPool2d(self.max_pool, self.max_pool, return_indices=False)
 
         if len(files) == 0:
@@ -147,17 +298,19 @@ class CRES_Dataset(torch.utils.data.Dataset):
             img = img.permute(0, 2, 1)
 
             # Apply max pooling now so we never have to hold the large images.
-
             imgs.append(maxpool(img.float()))
 
         imgs = torch.stack(imgs)
 
         return imgs, exp_name
     
-    def load_target_dir(self, dir_path, exp_name, spec_shape): # spec_shape[0] is frequency, spec_shape[1] is time
+    def load_target_dir(self, dir_path, exp_name): 
         """
-        TODO: Document
-        Load bbox json files
+        Load bbox json files. Apply max pooling reduction and ensure
+        boxes still make physical sense. 
+        Returns list of dictionaries with keys 'boxes' and 'labels', 
+        boxes are in [x1, y1, x2, y2] format, and labels will all be 1
+        since this simulation is only looking for events. 
         """
         path_glob = Path(dir_path).glob(f"{exp_name}*")
         files = [x for x in path_glob if x.is_file()]
@@ -242,24 +395,12 @@ class CRES_Dataset(torch.utils.data.Dataset):
     
 class CRES_DM(pl.LightningDataModule):
     """
-    Self contained PyTorch Lightning DataModule for testing image
-    segmentation models with PyTorch Lightning. Uses the torch dataset
-    ImageSegmentation_DS.
-
-    Args:
-        train_val_size (int): total size of the training and validation
-            sets combined.
-        train_val_split (Tuple[float, float]): should sum to 1.0. For example
-            if train_val_size = 100 and train_val_split = (0.80, 0.20)
-            then the training set will contain 80 imgs and the validation
-            set will contain 20 imgs.
-        test_size (int): the size of the test data set.
-        batch_size (int): batch size to be input to dataloaders. Applies
-            for training, val, and test datasets.
-
-    Notes: For now you can decide to shuffle the entire dataset or not but
-    the train is always shuffled and the val/test isn't so you can look at
-    the same images easily.
+    The LightningDataModule handles the train/test splitting, and defines
+    the DataLoaders for each of these cases. For use with the LightningModule,
+    helps reduce the amount of boilerplate code that needs to be written. The
+    class structure is defined here as a binary classification problem - either
+    the bounding box surrounds an event or not. The custom collate function 
+    ended up being the most finnicky part of the process. 
     """
 
     def __init__(
@@ -346,7 +487,7 @@ class CRES_DM(pl.LightningDataModule):
         https://python.plainenglish.io/understanding-collate-fn-in-pytorch-f9d1742647d3
 
         Returns:
-            imgs (torch.UInt8Tensor[batch_size, 3, img_size, img_size]): 
+            imgs (torch.UInt8Tensor[batch_size, 1, img_size, img_size]): 
                 batch of images.
             targets (List[Dict[torch.Tensor]]): list of dictionaries of 
                 length batch_size.
@@ -359,8 +500,8 @@ class CRES_DM(pl.LightningDataModule):
             imgs.append(img)
             targets.append(target)
 
-        # Converts list of tensor images (of shape (3,H,W) and len batch_size)
-        # into a tensor of shape (batch_size, 3, H, W).
+        # Converts list of tensor images (of shape (1,H,W) and len batch_size)
+        # into a tensor of shape (batch_size, 1, H, W).
         imgs = torch.stack(imgs)
 
         return imgs, targets
@@ -406,10 +547,6 @@ class CRES_LM(pl.LightningModule):
         # Log hyperparameters. 
         self.save_hyperparameters()
 
-        # Metrics.
-        # self.iou = JaccardIndex(task='binary')
-        # self.map_bbox = MeanAveragePrecision(iou_type = "bbox", class_metrics = False)
-
         # Faster RCNN model. 
         self.model = self.get_fasterrcnn_model(self.num_classes, self.pretrained)
 
@@ -430,27 +567,34 @@ class CRES_LM(pl.LightningModule):
 
         return losses
 
-    
     def validation_step(self, val_batch, batch_idx):
 
         imgs, targets = val_batch
         preds = self.forward(imgs)
         
-        iou_list = torch.tensor([box_iou(target["boxes"], pred["boxes"]).diag().mean() for target, pred in zip(targets, preds)])
-
-        self.log('IoU_bbox/val',iou_list)
+        # Applying Non-maximum suppression to prediction boxes to accuractely keep track of IoU
+        # Store indices to keep in a list
+        keep_list = [nms(pred['boxes'], pred['scores'], iou_threshold=.3) for pred in preds]
+        # All IoU's greater than 0 kept in following list
+        iou_list = []
+        for target in targets:
+            for i in range(len(keep_list)):
+                iou = box_iou(target['boxes'], preds[i]['boxes'][keep_list[i]])
+                iou = iou[iou>0]
+                iou_list += list(iou)
+                
+        # Log values
+        self.log('IoU_bbox/val',torch.tensor(iou_list).mean())
         self.log('Prediction_shape/val', float(len(preds[0]['boxes'])))
         self.log('targets_shape/val', float(len(targets[0]['boxes'])))
         return None
 
-    
     def configure_optimizers(self): 
 
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
         return optimizer
 
-    
     def get_fasterrcnn_model(self, num_classes, pretrained):
         
         # load Faster RCNN pre-trained model
@@ -472,45 +616,6 @@ class CRES_LM(pl.LightningModule):
 
         return imgs_normed
     
-    
-    
-    
-def main():
-    # Define training object
-    cres_dm = CRES_DM(root_dir,
-                      max_pool=16,
-                      file_max=1000,
-                      batch_size=1,
-                      num_workers=4
-                      )
-    
-    # Create Instance of LightningModule
-    cres_lm = CRES_LM(num_classes = 2, lr = 1e-4, pretrained = True)
-
-    # Create callback for ModelCheckpoints. 
-    checkpoint_callback = ModelCheckpoint(filename='{epoch:02d}', 
-                                          save_top_k = 15, 
-                                          monitor = "Loss/train_loss", 
-                                          every_n_epochs = 1)
-
-    # Define Logger. 
-    logger = TensorBoardLogger("tb_logs", name="cres", log_graph = False)
-
-    # Set device.
-    device = "gpu" if torch.cuda.is_available() else "cpu"
-
-    # Create an instance of a Trainer.
-    trainer = pl.Trainer(logger = logger, 
-                         callbacks = [checkpoint_callback], 
-                         accelerator = device, 
-                         max_epochs = 100, 
-                         log_every_n_steps = 1, 
-                         check_val_every_n_epoch= 1)
-
-    # Fit. 
-    trainer.fit(cres_lm, cres_dm.train_dataloader(), cres_dm.val_dataloader())
-    
-    return None
 
 
 if __name__ == "__main__":
