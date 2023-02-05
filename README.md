@@ -1,18 +1,24 @@
 
-<p align="center"><img width="30%" src="/demo/readme_imgs/he6-cres_logo.png" /></p>
+<p align="center"><img width="75%" src="readme_imgs/he6-cres_logo.png"/></p>
 
 --------------------------------------------------------------------------------
-# he6_cres_deep_learning
+# Introduction
+For my capstone project at General Assembly I chose to build off of the existing work by my former colleague, Drew Byron. I forked his he6_cres_deep_learning repo which has the simulation software necessary for generating spec files as seen in the He6-CRES experiment at the University of Washington, and building off examples in PyTorch in his tutorial series at https://github.com/drewbyron/pytorch-tutorials I built the framework necessary for training a Faster R-CNN object detection model on simulated CRES data. In order to accelerate the work a GPU instance was used on Amazon's AWS for the training of the model. This repo details the work done in order to get the simulation and modeling pipeline to a functional state, and this README serves as the instruction manual for how to generate your own spec files to train a Faster R-CNN model for event reconstruction in CRES events. 
 
-This repo contains modules and scripts for development of a deep learning event detection pipeline for the He6-CRES experiment at the University of Washington. 
+--------------------------------------------------------------------------------
+## he6_cres_deep_learning
+
+This folders contains modules and scripts for transforming track information data into simulated spectrogram images as seen by the He6-CRES experiment.
+
+--------------------------------------------------------------------------------
+## fasterRCNN
+
+This folder contains the work for this project. Three notebooks are present, the two `towards_faster_rcnn` and `towards_modeling` are where the spec simulation and modeling pipelines were figured out, respectively. 
 
 --------------------------------------------------------------------------------
 ### Train a model to detect cres events.
 
 #### Look at track and event classification overlaid on top of raw data: 
-
-
-<p align="center"><img width="42%" src="/demo/readme_imgs/sparse_spec.png" />              <img width="42%" src="/demo/readme_imgs/track_overlay.png" /><img width="80%" src="/demo/readme_imgs/event_overlay.png" /></p>
 
 
 --------------------------------------------------------------------------------
@@ -29,108 +35,3 @@ Below we will review how to use this package to create three different training 
 	* `cd he6-cres-deep-learning`
 	* `python3 ./build_simple_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 50 -n_events 4 -len .035 -seed 24436 -sanity_check False`
 	* For the other datasets replace the `.py` file with the appropriate module. 
-
---------------------------------------------------------------------------------
-### Instructions for how to train a UNET model on one of the above datasets
-
-### Locally
-
-* **Train UNET on Dataset**
-	* When running locally it is easiest to train with a script. The below is an example of how to do this. 
-	* `cd he6-cres-deep-learning`
-	* `python3 demo/train_simple_ds.py`
-	* For the other datasets replace the `.py` file with the appropriate module.
-	* One done training use the `demo/model_predictions.ipynb` to investigate the restuls and save figures. (NEED TO PUT THIS IN REPO)
-	* To open the tensorboard metric tracking run `tensorboard --logdir tb_logs/` wherever you've sent your checkpoints to be written to (specified in `train_simple_ds.py`).
-
-### Google colab
-
-* For now I am training the model either locally or using the pro version of google colab which gives you access to GPUs in a jupyter-lab type enviornment for training models such as this. The link to the colab notebook I used to train UNET on the above datasets is [here](https://colab.research.google.com/drive/112u4WldrYLWI_7iY7o0MWpBdhCMuhelc?usp=sharing). All you should need to do is copy the nb to your own drive and then follow the instructions in the notebook. Loading the data to the remote server is time consuming so this is not an ideal situation going forward. It's also worth noting that  I've also put a copy of the colab ipynb in the repo here: `/he6-cres-deep-learning/demo/cres_dl_train_unet_colab.ipynb`.
-
-
-### Hyak GPU cluster
-
-* Ideally we should get this training on HYAK soon, the GPU cluster here at UW. This should enable much faster iteration and training. 
-
---------------------------------------------------------------------------------
-### Deep Learning: 
-
-* Building out the repo. Then going to add everything in so it's easy to use and the ipynb is only a handful of cells long. 
-
-
-
-
-
---------------------------------------------------------------------------------
-### TODO LIST: 
-
-* Want to illustrate the model's performance on all 3 cases. Very simple dataset, snr fluctuations, sidebands. First work on making scripts for building these three datasets. Then work on the modelling and iterate. 
-* Make a plan for what we want to have for each dataset, start making moves towards this part of thesis being done ASAP. make the plots then start writing. 
-
---------------------------------------------------------------------------------
-
-### Done List: 
-
-* Put a link to the colab nb in the readme. 
-* If the maxpooling was done in the loading process this would make the loading much less intense on the ram. I should make this work before pushing on. DONE 
-* Get jaccard index (IOU) tracked by the model.
-* Ok the sideband dataset isn't working well because of the very weak tracks that I still have training data for (I think). I'm going to limit the range of h. 
-* Maybe just use the local version to make cool plots of the performance? Need to move it out of this directory. 
-* Getting somewhere but the imports aren't working. Get it working then clean up everything from the bottom.
---------------------------------------------------------------------------------
-
-# For tomorrow: 
-
-* Tonight run both of the datasets I need. 
-* For tomorrow train on these (maybe one local one on colab?)
-* Try increasing num_workers in dataloader?
-* Create cool THESIS-worthy plots and add them to the readme. 
-
-* **After breakfast**: 
-	* Look at results from the simple ds and make plots about the results. 
-	
-
-* **By EOD**: 
-	* Have a instructions and preliminary plots for each of the 4 datasets with 10 files. The idea being that all but the number of files will need to be increased. 
-
-
-
-
---------------------------------------------------------------------------------
-
-### Notes as I build this out: 
-
-
-* Note that the requant gain is what's causing my noise mean to be 8 here instead of 1. And it isn't exacly 8 due to the rounding. 
-
---------------------------------------------------------------------------------
-
-## Notes on the different tests: 
-
-
-**Simple DS**: 
-
-	* This dataset is curropt. Need to rebuild it. Start back with 10 files. Then make it work in the simplest of cases. Make thesis worthy plots of it, then move on to SNR fluctuations. 
-
-**Sideband ds**: 
-	* Sidebands isn't working with the base model and 50 epochs. It guesses everything as class 2. Hmm. Maybe the dataset is too confusing? Try with a slightly deeper UNET and a simpler dataset. Start with the simplest case first. 
-	* Also maybe the learning rate is too high on this run, try lowering it. 
-
---------------------------------------------------------------------------------
-
-# Start here 11/24/22:
-
-## Specific steps I'm following in training:
-
-* **First Pass** Make things work to first order (overtraining at least) with 10 files. 
-	* **Datasets**: 
-		* simple: `python3 ./build_simple_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 10 -n_events 4 -len .035 -seed 24436 -sanity_check False`
-		* **DONE** snr: `python3 ./build_snr_oscillation_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 10 -n_events 4 -len .035 -seed 24436 -sanity_check False`
-		* sidebands: `python3 ./build_sideband_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 10 -n_events 1 -len .035 -seed 24436 -sanity_check False`
-	* **Training**: 
-		* simple: `python3 demo/train_simple_ds.py`
-		* snr: `python3 demo/train_snr_oscillation_ds.py`
-		* sidebands: `python3 demo/train_sidebands_ds.py`
-
-	* **Investigation**
-		* Make plots of all of the above, thesis worthy!
