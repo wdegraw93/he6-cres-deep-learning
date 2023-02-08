@@ -79,7 +79,7 @@ I will briefly go over the process of generating your own spectrogram files and 
 
 --------------------------------------------------------------------------------
 
-### `fasterRCNN_ds.py`: 
+### `fasterRCNN_ds.py`
 
 #### Syntax
 
@@ -99,7 +99,9 @@ I will briefly go over the process of generating your own spectrogram files and 
 
 --------------------------------------------------------------------------------
 
-### `modeling.py`:
+### `modeling.py`
+
+#### **If you wish to use a GPU for training then first follow below instructions on starting AWS instance (or use whichever GPU service you prefer).**
 
 #### Syntax
 
@@ -125,3 +127,38 @@ I will briefly go over the process of generating your own spectrogram files and 
 
 --------------------------------------------------------------------------------
 
+## Operating from AWS GPU instance
+
+I assume some prior knowledge of AWS EC2 services. If you have none here are the docs: https://docs.aws.amazon.com/ec2/index.html
+
+
+### Starting GPU instance
+* Go to EC2 Dashboard
+* Click *Launch Instance*
+    * Give descriptive name
+* Under AMI search 'deep learning'
+    * The specific AMI used in this work was Deep Learning AMI GPU PyTorch 1.12.1 (Ubuntu 20.04) 20221114
+ami-08870b6ab8c849412 (64-bit (x86))
+* Under instance type choose one that has at least one GPU available
+    * Instance used in this case is g4dn.xlarge
+    * If you have just created an account then you will need to request a limit increase. My first one was rejected, but with more detail given to the project and also having run the simulation on a t2.large instance I was approved for the increase. 
+* Choose your pem key
+    * pem key instructions: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
+* Configure storage and launch instance
+* Run `ssh -i <your_pem_file> ubuntu@<instance_public_DNS_address>` from your terminal to SSH into instance
+* Clone this repository
+* Run `source activate pytorch`
+* Follow the above instructions to train the model!
+
+### JupyterLab from AWS
+
+After having launched your instance if you wish to run JupyterLab from the instance follow these steps:
+
+* SSH into the instance
+* Run `source active pytorch`
+* Run `jupyter lab --no-browser --port=8888`
+* Open a new terminal window
+* SSH with these modifications: `ssh -i <your_pem_file> -L 5511:127.0.0.1:8888 ubuntu@<instance_public_DNS_address>`
+* Open your internet browser of choice
+* Enter URL: `http://127.0.0.1:5511/lab/`
+You are now running JupyterLab through the AWS instance!
