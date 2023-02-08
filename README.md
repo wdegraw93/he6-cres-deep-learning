@@ -83,7 +83,7 @@ I will briefly go over the process of generating your own spectrogram files and 
 
 #### Syntax
 
-`python3 fasterRCNN_ds.py -d "fasterRCNN" -c "<relative_path_to_config file>" -gn "<relative_path_to_gain_noise_file>" -n_files 1000 -n_events 3 -len .035 -seed 24436 -slope_mean 2e8 -slope_std 1e7`
+`python3 fasterRCNN_ds.py -d "fasterRCNN" -c "config/base_daq_config.yaml" -gn "gain_noise/base_gain_noise.csv" -n_files 1000 -n_events 3 -len .035 -seed 24436 -slope_mean 2e8 -slope_std 1e7`
 
 #### Arguments
 
@@ -103,10 +103,11 @@ I will briefly go over the process of generating your own spectrogram files and 
 
 #### Syntax
 
-`python3 modeling.py  -fb 4096 -mp 16 -f 1000 -t None -ts (0.6,0.3,0.1) -bs 1 -sd True -s 42 -nw 4 -cm {0: {"name": "background","target_color": (255, 255, 255),},1: {"name": "event","target_color": (255, 0, 0)}} -nc 2 -lr .0001 -p True -e 100`
+`python3 modeling.py  -rd "config/fasterRCNN" -fb 4096 -mp 16 -f 1000 -t None -ts (0.6,0.3,0.1) -bs 1 -sd True -s 42 -nw 4 -cm {0: {"name": "background","target_color": (255, 255, 255),},1: {"name": "event","target_color": (255, 0, 0)}} -nc 2 -lr .0001 -p True -e 100`
 
 #### Arguments
 
+`-rd`: Directory that has the label file directory and spec file directory
 `-fb`:  number of frequency bins in spec file <br>
 `-mp`: max-pooling factor to use <br>
 `-f`: number of files to use for training <br>

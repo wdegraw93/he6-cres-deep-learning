@@ -98,8 +98,8 @@ def main():
 
     # Generate spec files and targets
     fasterrcnn_spec(dir_name = args.dir_name,
-                    config_path = sys.path[0]+args.config_path, 
-                    gain_noise_path = sys.path[0]+args.gain_noise_path, 
+                    config_path = sys.path[0]+'/'+args.config_path, 
+                    gain_noise_path = sys.path[0]+'/'+args.gain_noise_path, 
                     n_files = args.n_files, 
                     n_events_per_file = args.n_events_per_file,
                     spec_length = args.spec_length,

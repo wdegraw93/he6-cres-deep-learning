@@ -147,7 +147,7 @@ def main():
     args = par.parse_args()
 
     # Define training object
-    cres_dm = CRES_DM(root_dir = args.root_dir,
+    cres_dm = CRES_DM(root_dir = sys.path[0]+'/'+args.root_dir,
                       freq_bins = args.freq_bins,
                       max_pool = args.max_pool,
                       file_max = args.file_max,
