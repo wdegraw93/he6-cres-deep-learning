@@ -23,17 +23,24 @@ def main():
     par = argparse.ArgumentParser()
     arg = par.add_argument
     arg(
+        "-d",
+        "--dir_name",
+        type=str,
+        default="fasterRCNN_test",
+        help='Name of directory in which to put spec and label files'
+    )
+    arg(
         "-c",
         "--config_path",
         type=str,
-        default=sys.path[0]+'/config/base_daq_config.yaml',
+        default='/config/base_daq_config.yaml',
         help="Path to the base daq config file to copy.",
     )
     arg(
         "-gn",
         "--gain_noise_path",
         type=str,
-        default=sys.path[0]+'/gain_noise/base_gain_noise.csv',
+        default='/gain_noise/base_gain_noise.csv',
         help="Path to the gain_noise file to copy for setting the gain and noise mean of the data file.",
     )
     arg(
@@ -90,8 +97,9 @@ def main():
     args = par.parse_args()
 
     # Generate spec files and targets
-    fasterrcnn_spec(config_path = args.config_path, 
-                    gain_noise_path = args.gain_noise_path, 
+    fasterrcnn_spec(dir_name = args.dir_name,
+                    config_path = sys.path[0]+args.config_path, 
+                    gain_noise_path = sys.path[0]+args.gain_noise_path, 
                     n_files = args.n_files, 
                     n_events_per_file = args.n_events_per_file,
                     spec_length = args.spec_length,
@@ -103,7 +111,8 @@ def main():
 
 
 
-def fasterrcnn_spec(config_path, 
+def fasterrcnn_spec(dir_name,
+                    config_path, 
                     gain_noise_path, 
                     n_files, 
                     n_events_per_file,
@@ -113,7 +122,7 @@ def fasterrcnn_spec(config_path,
                     random_seed):
     
     # ---- Copy and rename base config ----
-    name = "fasterRCNN"
+    name = dir_name
     config_path = Path(config_path)
     config_path_rcnn = config_path.with_name(name + config_path.suffix)
     shutil.copyfile(str(config_path), str(config_path_rcnn))
@@ -142,7 +151,7 @@ def fasterrcnn_spec(config_path,
                                         spec_length=spec_length,
                                         slope_mean=slope_mean,
                                         random_seed=random_seed)
-    
+    print(tracks)
     # Build the simulated spec files.
     daq = DAQ(config)
     daq.run(tracks)
@@ -297,6 +306,9 @@ def fasterrcnn_df(n_files, n_events_per_file, spec_length=.035, freq_bw=1200e6, 
     track_set["band_power_stop"] = [1e-14]*len(track_set["slope"])
     track_set["band_num"] = np.zeros(len(track_set["slope"]))
 #-------------------------------------------------------------------------------------------------------------------------
+    
+     # convert track_set dict to DataFrame
+    track_set = pd.DataFrame(track_set)
     
     return track_set, event_bboxes
 

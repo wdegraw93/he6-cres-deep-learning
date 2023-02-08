@@ -69,20 +69,58 @@ Overall the results are very promising. Increasing the score cut on the output b
 
 # Conclusion
 
-This project was the first example of applying an object detection deep learning model to (simulated) CRES data. With no hyperparameter tuning and a limited size dataset the model converged and provided some very good results. A mean IoU of ~.8 was achieved, with well over 90% of targets being matched to a prediciton. This work demonstrates that these types of deep learning frameworks are at the very least worth pursuing for reconstructing events in CRES data. Further, with few changes to the labels output in the simulation script and the PyTorch classes, a Mask R-CNN pipeline could be created and tested for possible further improvement. 
+This project was the first example of applying an object detection deep learning model to (simulated) CRES data. With no hyperparameter tuning and a limited size dataset the model converged and provided some very good results. A mean IoU of ~.8 was achieved, with well over 90% of targets being matched to a prediction. This work demonstrates that these types of deep learning frameworks are at the very least worth pursuing for reconstructing events in CRES data. Further, with few changes to the labels output in the simulation script and the PyTorch classes, a Mask R-CNN pipeline could be created and tested for possible further model improvement. 
 
 --------------------------------------------------------------------------------
 
-### Instructions for building a training dataset: 
+## Instructions for building a training dataset and training a model: 
 
-#### Overview: 
+I will briefly go over the process of generating your own spectrogram files and training a model. The latter will also include instructions on how to set up an AWS instance for training, as well as running jupyter lab from the instance if you wish to use the notebooks in the GPU environment. I will assume that all command line inputs are done from inside of the folder `fasterRCNN`. The two scripts have default values for each argument that I will show below, so in theory you could simply run `python3 <enter script name>.py` and get some results. I show all of the available arguments for completeness, and describe each in turn. 
 
-Below we will review how to use this package to create three different training datasets. Each dataset will consist of 50 35ms spec files along with label files. The first dataset contains simple high snr tracks with no snr fluctuations (two class; track, background). The second dataset contains tracks with severe snr fluctuations (two class; track, background). The third dataset contains tracks with sidebands (three class; main_band, sideband, background). The point of this study is to illustrate that this approach could work for us and potentially help us with the most difficult problems to solve in our analysis; snr fluctuations and sidebands. We would need both more realistic training data and much more training data to train and deploy a data-ready model. But the fact that we are seeing reasonable performance with 50 spec files is indicative that this is a promising avenue. Also, the fact that the max pooling doesn't significantly disrupt detection efficiencies we may be able to apply this to our raw data and save a factor of 64 or more in data written to disk.
+--------------------------------------------------------------------------------
 
-#### Instructions: 
+### `fasterRCNN_ds.py`: 
 
+#### Syntax
 
-* **Build a Dataset**
-	* `cd he6-cres-deep-learning`
-	* `python3 ./build_simple_ds.py -c "/media/drew/T7 Shield/cres_deep_learning/training_data/config/base_daq_config.yaml" -gn "/media/drew/T7 Shield/cres_deep_learning/training_data/gain_noise/base_gain_noise.csv" -n_files 50 -n_events 4 -len .035 -seed 24436 -sanity_check False`
-	* For the other datasets replace the `.py` file with the appropriate module. 
+`python3 fasterRCNN_ds.py -d "fasterRCNN" -c "<relative_path_to_config file>" -gn "<relative_path_to_gain_noise_file>" -n_files 1000 -n_events 3 -len .035 -seed 24436 -slope_mean 2e8 -slope_std 1e7`
+
+#### Arguments
+
+`-d`: name of directory you wish to store results of simulation in (doesn't need to be created beforehand)
+`-c`: configuration file to for spectrogram simulation <br>
+`-gn`: gain_noise file for spectrogram simulation <br>
+`-n_files`: number of files to simulate <br>
+`-n_events`: mean number of events per file (poisson distribution used for this work) <br>
+`-len`: length in seconds of spectrogram <br>
+`-seed`: random seed to use <br>
+`-slope_mean`: mean value of track slope distribution (normal distribution used for this work) <br>
+`slope_std`: standard deviation of slope distribution <br>
+
+--------------------------------------------------------------------------------
+
+### `modeling.py`:
+
+#### Syntax
+
+`python3 modeling.py  -fb 4096 -mp 16 -f 1000 -t None -ts (0.6,0.3,0.1) -bs 1 -sd True -s 42 -nw 4 -cm {0: {"name": "background","target_color": (255, 255, 255),},1: {"name": "event","target_color": (255, 0, 0)}} -nc 2 -lr .0001 -p True -e 100`
+
+#### Arguments
+
+`-fb`:  number of frequency bins in spec file <br>
+`-mp`: max-pooling factor to use <br>
+`-f`: number of files to use for training <br>
+`-t`: transformation to apply to images during training <br>
+`-ts`: fractions used for train/val/test split <br>
+`-bs`: batch size <br>
+`-sd`: whether or not to shuffle train/val sets prior to training <br>
+`-seed`: random seed <br>
+`-nw`: number of cpu cores for loading data <br>
+`-cm`: class map for faster R-CNN model <br>
+`-nc`: number of classes in model <br>
+`-lr`: learning rate for Adam algorithm <br>
+`-p`: whether to use pretrained weights or not <br>
+`-e`: number of epochs to use in training
+
+--------------------------------------------------------------------------------
+

@@ -92,7 +92,7 @@ def main():
         help='Whether or not to shuffle train/val datasets during training'
     )
     arg(
-        '-s',
+        '-seed',
         '--seed',
         type=int,
         default=42,
